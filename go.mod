@@ -1,3 +1,3 @@
-module github.com/factotum/http-toolbox
+module github.com/jaydamon/http-toolbox
 
 go 1.19
