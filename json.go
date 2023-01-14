@@ -29,6 +29,10 @@ func Respond(w http.ResponseWriter, status int, payload any) {
 	w.Write([]byte(response))
 }
 
+func RespondNoBody(w http.ResponseWriter, status int) {
+	createJsonResponse(w, status)
+}
+
 // RespondError forms message and code as http error response
 func RespondError(w http.ResponseWriter, code int, message string) {
 	Respond(w, code, map[string]string{"error": message})
