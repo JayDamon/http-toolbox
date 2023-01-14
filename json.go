@@ -2,76 +2,39 @@ package httptoolbox
 
 import (
 	"encoding/json"
-	"errors"
-	"io"
 	"net/http"
 )
 
-type Tools struct {
-	MaxJSONSize        int
-	MaxFileSize        int
-	AllowedFileTypes   []string
-	AllowUnknownFields bool
-}
-
-type JsonResponse struct {
-	Error   bool   `json:"error"`
-	Message string `json:"message"`
-	Data    any    `json:"data, omitEmpty"`
-}
-
-func (t *Tools) ReadJSON(w http.ResponseWriter, r *http.Request, data any) error {
-	maxBytes := 1048576
-
-	r.Body = http.MaxBytesReader(w, r.Body, int64(maxBytes))
-
-	dec := json.NewDecoder(r.Body)
-	err := dec.Decode(data)
+func ReadJsonBodyToVariable(w http.ResponseWriter, r *http.Request, result any) {
+	err := json.NewDecoder(r.Body).Decode(&result)
 	if err != nil {
-		return err
+		RespondError(w, http.StatusInternalServerError, err.Error())
 	}
-
-	err = dec.Decode(&struct{}{})
-	if err != io.EOF {
-		return errors.New("body must have only a single JSON value")
-	}
-
-	return nil
 }
 
-func (t *Tools) WriteJSON(w http.ResponseWriter, status int, data any, headers ...http.Header) error {
-	out, err := json.Marshal(data)
+func Respond(w http.ResponseWriter, status int, payload any) {
+
+	if payload == nil {
+		createJsonResponse(w, status)
+		return
+	}
+
+	response, err := json.Marshal(payload)
 	if err != nil {
-		return err
+		RespondError(w, http.StatusInternalServerError, err.Error())
+		return
 	}
 
-	if len(headers) > 0 {
-		for key, value := range headers[0] {
-			w.Header()[key] = value
-		}
-	}
+	createJsonResponse(w, status)
+	w.Write([]byte(response))
+}
 
+// RespondError forms message and code as http error response
+func RespondError(w http.ResponseWriter, code int, message string) {
+	Respond(w, code, map[string]string{"error": message})
+}
+
+func createJsonResponse(w http.ResponseWriter, status int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_, err = w.Write(out)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (t *Tools) ErrorJSON(w http.ResponseWriter, err error, status ...int) error {
-	statusCode := http.StatusBadRequest
-
-	if len(status) > 0 {
-		statusCode = status[0]
-	}
-
-	var payload JsonResponse
-	payload.Error = true
-	payload.Message = err.Error()
-
-	return t.WriteJSON(w, statusCode, payload)
 }
